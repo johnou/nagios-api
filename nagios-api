@@ -55,7 +55,6 @@ def _send_json(req, success, content):
         'Content-Length': len(out),
         'Content-Type': 'application/json'
     }
-    log.info("Check for access-control-allow-origin, %s" % ALLOW_ORIGIN)
     if ALLOW_ORIGIN is not None:
         headers['Access-Control-Allow-Origin'] = ALLOW_ORIGIN
         headers['Access-Control-Allow-Headers'] = 'accept, origin, content-type'
