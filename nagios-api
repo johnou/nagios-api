@@ -719,8 +719,37 @@ def http_bulk_schedule_check(req):
     forced = reqobj.get('forced', 0)
     all_services = reqobj.get('all_services', 0)
 
+    if not hosts:
+        return json_error(req, 'No host received.')
 
+    try:
+        check_time = int(check_time)
+        forced = int(forced)
+        all_services = int(all_services)
+    except ValueError:
+        return json_error(req, 'Invalid value provided for check_time,\
+                all_service or forced.')
 
+    for host in hosts:
+        obj = NAGIOS.host_or_service(host, None)
+        if obj is None:
+            log.info('Failed to find host %s to update.' % host)
+        if forced:
+            if not send_nagios_command('SCHEDULE_FORCED_HOST_CHECK', host, check_time):
+                log.info('Failed sending forced_host_check to Nagios.')
+        else:
+            if not send_nagios_command('SCHEDULE_HOST_CHECK', host, check_time):
+                log.info('Failed sending host_check to Nagios.')
+
+        if all_services:
+            if forced:
+                if not send_nagios_command('SCHEDULE_FORCED_HOST_SVC_CHECKS', host, check_time):
+                    log.info('Failed sending forced_host_services_check to Nagios.')
+            else:
+                if not send_nagios_command('SCHEDULE_HOST_SVC_CHECKS', host, check_time):
+                    log.info('Failed sending host_service_check to Nagios.')
+
+    return json_response(req, 'submitted')
 
 
 def http_stfu_nagios(req):
