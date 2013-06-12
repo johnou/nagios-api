@@ -709,7 +709,7 @@ def http_schedule_check(req, objid, reqobj):
     return json_response(req, 'submitted')
 
 
-def html_bulk_schedule_check(req):
+def http_bulk_schedule_check(req):
     global NAGIOS, CMD_ENABLED
     if not CMD_ENABLED:
         return json_error(req, 'External commands not enabled on nagios-api.')
