@@ -455,6 +455,54 @@ def http_acknowledge_problem(req, objid, reqobj):
     return json_response(req, 'submitted')
 
 
+def http_bulk_acknowledge_problem(req, objid, reqobj):
+    
+    global NAGIOS, CMD_ENABLED
+    if not CMD_ENABLED:
+        return json_error(req, 'External commands not enabled on nagios-api.')
+
+    hosts = reqobj.get('hosts')
+    comment = reqobj.get('comment')
+    author = reqobj.get('author', 'nagios-api')
+    sticky = reqobj.get('sticky', 1)
+    notify = reqobj.get('notify', 1)
+    persistent = reqobj.get('persistent', 0)
+
+    if hosts is None:
+        return json_error(req, 'Failed to find host or service to update.')
+
+    if not comment:
+        return json_error(req, 'Required paramemter "comment" not found.')
+
+    try:
+        sticky = int(sticky)
+        notify = int(notify)
+        persistent = int(persistent)
+    except ValueError:
+        return json_error(req, 'Invalid value provided for one or more of\
+                sticky, notify or persistent.')
+
+    for host, services in hosts.iteritems():
+        
+        # loop through services, could be empty, kinda hackish
+        for service in services or [None]:
+            obj = NAGIOS.host_or_service(host, service)
+
+            if obj is None:
+                continue
+
+            if obj.service is not None:
+                if not send_nagios_command('ACKNOWLEDGE_SVC_PROBLEM', host,
+                        service, sticky, notify, persistent, author, comment):
+                    continue
+            else:
+                if not send_nagios_command('ACKNOWLEDGE_HOST_PROBLEM', host,
+                        sticky, notify, persistent, author, command):
+                    continue
+
+    return json_response(req, 'submitted')
+
+
 def http_remove_acknowledgement(req, objid, reqobj):
     '''Removes an acknowledgement from a host or service.
 
@@ -661,6 +709,33 @@ def http_schedule_check(req, objid, reqobj):
     return json_response(req, 'submitted')
 
 
+def html_bulk_schedule_check(req):
+    global NAGIOS, CMD_ENABLED
+    if not CMD_ENABLED:
+        return json_error(req, 'External commands not enabled on nagios-api.')
+
+    hosts = reqobj.get('hosts')
+    check_time = reqobj.get('check_time', time.time())
+    forced = reqobj.get('forced', 0)
+    all_services = reqobj.get('all_services', 0)
+
+
+
+
+
+def http_stfu_nagios(req):
+    global NAGIOS, CMD_ENABLED
+    if not CMD_ENABLED:
+        return json_error(req, 'External commands not enabled on nagios-api.')
+
+    stfu_time = reqobj.get('stfu_time', time.time())
+    if not send_nagios_command('DISABLE_NOTIFICATIONS', stfu_time):
+        return json_error(req, 'Failed sending command to Nagios.')
+
+    return json_response(req, 'silenced.')
+
+
+
 def http_handler(req):
     '''Handle an incoming HTTP request.
 
@@ -707,10 +782,13 @@ def http_handler(req):
             'enable_notifications': http_enable_notifications,
             'submit_result': http_submit_result,
             'acknowledge_problem': http_acknowledge_problem,
+            'bulk_acknowledge_problem': http_bulk_acknowledge_problem,
             'remove_acknowledgement': http_remove_acknowledgement,
             'add_comment': http_add_comment,
             'delete_comment': http_delete_comment,
             'schedule_check': http_schedule_check,
+            'bulk_schedule_check': http_bulk_schedule_check,
+            'stfu_nagios': http_stfu_nagios,
         }
     }
 
