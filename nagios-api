@@ -98,6 +98,26 @@ def http_state(req, objid, reqobj):
     return json_response(req, NAGIOS.for_json())
 
 
+def http_state_problem(req, objid, reqobj):
+
+    global NAGIOS
+    if objid is not None:
+        return json_error(req, 'Unexpected object ID.')
+    
+    global_data = NAGIOS.for_json()
+    ret = {}
+    for hid, host in global_data['content'].iteritems():
+        ret[hid] = { k: v for k, v in host.iteritems() if k != 'services' }
+        if int(host['current_state']) > 0:
+            # host is down, just return barebone without services
+            continue
+        else:
+            # return the services that are: warning, critical, unknown
+            ret[hid]['services'] = {k: v for k, v in
+                    host['services'].iteritems() if int(v.get('current_state') > 0)}
+
+    return json_response(req, ret)
+
 def http_objects(req, objid, reqobj):
     '''Get a host->service mapping. Does not return any data about what
     these objects are. This is to be used to efficiently get a list of
@@ -802,6 +822,7 @@ def http_handler(req):
         'GET': {
             'log': http_log,
             'state': http_state,
+            'state_problem': http_state_problem,
             'objects': http_objects,
             'host': http_host,
             'service': http_service,
