@@ -106,14 +106,17 @@ def http_state_problem(req, objid, reqobj):
     
     ret = {}
     for hid, host in NAGIOS.for_json().iteritems():
-        ret[hid] = {k: v for k, v in host.iteritems() if k != 'services'}
         if int(host['current_state']) > 0:
             # host is down, just return barebone without services
-            continue
+            ret[hid] = {k: v for k, v in host.iteritems() if k != 'services'}
         else:
             # return the services that are: warning, critical, unknown
-            ret[hid]['services'] = {k: v for k, v in
+            services = {k: v for k, v in
                     host['services'].iteritems() if int(v.get('current_state')) > 0}
+            # if there're no failed services,
+            if services != {}:
+                ret[hid] = {k: v for k, v in host.iteritems() if k != 'services'}
+                ret[hid]['services'] = services
 
     return json_response(req, ret)
 
