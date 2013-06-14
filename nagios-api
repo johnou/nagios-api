@@ -480,6 +480,16 @@ def http_acknowledge_problem(req, objid, reqobj):
 
 
 def http_bulk_acknowledge_problem(req, objid, reqobj):
+
+    '''
+    Exactly same parameter as acknowledge problems,
+
+    hosts and comment are required.
+
+    Hosts is now a dictionary in form of hostname:[services]
+    services could be an empty list, representing ack host only.
+
+    '''
     
     global NAGIOS, CMD_ENABLED
     if not CMD_ENABLED:
@@ -788,6 +798,12 @@ def http_stfu_nagios(req):
     return json_response(req, 'silenced.')
 
 
+def http_program(req, objid, reqobj):
+    global NAGIOS
+    if objid is not None:
+        return json_error(req, 'Unexpected object ID.')
+    return json_response(req, NAGIOS.program.to_json())
+
 
 def http_handler(req):
     '''Handle an incoming HTTP request.
@@ -828,6 +844,7 @@ def http_handler(req):
             'objects': http_objects,
             'host': http_host,
             'service': http_service,
+            'program': http_program,
         },
         'POST': {
             'cancel_downtime': http_cancel_downtime,

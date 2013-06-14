@@ -71,6 +71,8 @@ class Nagios:
                 if host not in self.services:
                     self.services[host] = {}
                 self.services[host][service] = Service(obj)
+            elif obj['type'] == 'programstatus':
+                self.program = ProgramStatus(obj)
             elif obj['type'].endswith('comment'):
                 self.comments[int(obj['comment_id'])] = Comment(obj)
             elif obj['type'].endswith('downtime'):
@@ -162,7 +164,6 @@ class HostOrService(NagiosObject):
         self.comments[cmt.comment_id] = cmt
 
 
-
 class Host(HostOrService):
     '''Represent a single host.
 
@@ -224,3 +225,20 @@ class Downtime(NagiosObject):
             'end_time', 'triggered_by', 'fixed', 'duration', 'author',
             'comment']
         self.downtime_id = int(self.downtime_id)
+
+
+class ProgramStatus(NagiosObject):
+    '''Represent the nagios Program status.
+    
+    '''
+
+    def __init__(self, obj):
+        NagiosObject.__init__(self, obj)
+        self.essential_keys = ['enable_notifications',
+                'active_service_checks_enabled',
+                'passive_service_check_enabled',
+                'active_host_checks_enabled',
+                'passive_host_checks_enabled',
+                'program_start',
+                'last_command_check',
+                ]
