@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-#	/etc/rc.d/init.d/nagios-api
+#       /etc/rc.d/init.d/nagios-api
 #
 # Starts the Nagios API
 # (RedHat/CentOS only!)
 #
-# chkconfig: 2345 90 10
+# chkconfig: 345 90 10
 # description: Nagios API Daemon
 
 # processname: nagios-api
@@ -15,20 +15,27 @@ source /etc/rc.d/init.d/functions
 PROG="nagios-api"
 DESC="Nagios API Daemon"
 RETVAL=0
-LOGFILE="/var/log/nagios/nagios-api.log"
 
-NAG_API_BIN=/usr/local/bin/nagios-api
-NAG_API_PORT=8181
-NAG_API_PID=/var/run/$PROG.pid
+PYTHON_VIRTUAL_ENV="/opt/python/nagios/bin/python"
+NAG_API_HOME="/home/groundwork/nagios-api"
+NAG_HOME="/home/groundwork/nagios"
 
-NAGIOS_STATUS_FILE=/var/nagios/status.dat
-NAGIOS_COMMAND_FILE=/var/nagios/rw/nagios.cmd
-NAGIOS_LOG_FILE=/var/log/nagios.log
+LOGFILE=$NAG_API_HOME/log/nagios-api.log
+NAG_USER=nagios
+NAG_API_BIN=$NAG_API_HOME/nagios-api
+NAG_API_PID=$NAG_API_HOME/$PROG.pid
+NAG_API_PORT=6315
+
+NAGIOS_STATUS_FILE=$NAG_HOME/var/status.log
+NAGIOS_COMMAND_FILE=$NAG_HOME/var/rw/nagios.cmd
+NAGIOS_COMMENT_FILE=$NAG_HOME/var/nagioscomment.log
+NAGIOS_DOWNTIME_FILE=$NAG_HOME/var/nagiosdowntime.log
+NAGIOS_LOG_FILE=$NAG_HOME/var/nagios.log
 
 start() {
   echo -n "Starting $DESC ($PROG): "
-  daemon $NAG_API_BIN -p $NAG_API_PORT -s $NAGIOS_STATUS_FILE -c $NAGIOS_COMMAND_FILE -l $NAGIOS_LOG_FILE > $LOGFILE 2>&1 &
-  
+  daemon --user=$NAG_USER $PYTHON_VIRTUAL_ENV $NAG_API_BIN -p $NAG_API_PORT -s $NAGIOS_STATUS_FILE -c $NAGIOS_COMMAND_FILE -l $NAGIOS_LOG_FILE -t $NAGIOS_COMMENT_FILE -u $NAGIOS_DOWNTIME_FILE -o \\* --pid-file=$NAG_API_PID > $LOGFILE 2>&1 &
+
   echo
   RETVAL=$?
   return $RETVAL

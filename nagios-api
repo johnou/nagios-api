@@ -2,7 +2,7 @@
 
 '''nagios-api - a REST-like, JSON API for Nagios
 
-This provides a simple REST interface to Nagios3. See the README for
+This provides a simple REST interface to Nagios2. See the README for
 more information about this software.
 
 Originally from:
@@ -888,7 +888,7 @@ def send_nagios_command(*args):
     return True
 
 
-def read_status(statusfile):
+def read_status(statusfile, commentfile, downtimefile):
     '''Monitor the Nagios status file and update our global data store
     with the data as it changes.
 
@@ -899,7 +899,7 @@ def read_status(statusfile):
         stat = os.stat(statusfile)
         if mtime is None or stat.st_mtime > mtime:
             try:
-               NAGIOS = Nagios(statusfile)
+               NAGIOS = Nagios(statusfile, commentfile, downtimefile)
             except ValueError,e:
                 print "You appear to have handed me a malformed status file - possibly the state retention file. Please check your arguments and try again."
                 sys.exit(-1)
@@ -949,7 +949,7 @@ def write_pid():
             sys.exit(1)
 
 def main(argv):
-    '''A simple REST API for Nagios3.
+    '''A simple REST API for Nagios2.
 
     '''
     global CMDFILE, CMD_ENABLED, LOG_ENABLED, ALLOW_ORIGIN, PID_FILE
@@ -959,13 +959,19 @@ def main(argv):
     parser.add_option('-o', '--allow-origin', dest='alloworigin', metavar='ORIGIN',
             help='Access-Control-Allow-Origin header contents')
     parser.add_option('-s', '--status-file', dest='statusfile', metavar='FILE',
-            default='/var/cache/nagios3/status.dat', help='The file that contains '
+            default='/var/cache/nagios2/status.dat', help='The file that contains '
             'the Nagios status.')
+    parser.add_option('-t', '--comment-file', dest='commentfile', metavar='FILE',
+            default='/var/cache/nagios2/nagioscomment.log', help='The file that contains '
+            'the Nagios comments.')
+    parser.add_option('-u', '--downtime-file', dest='downtimefile', metavar='FILE',
+            default='/var/cache/nagios2/nagiosdowntime.log', help='The file that contains '
+            'the Nagios downtime.')
     parser.add_option('-c', '--command-file', dest='commandfile', metavar='FILE',
-            default='/var/lib/nagios3/rw/nagios.cmd', help='The file to write '
+            default='/var/lib/nagios2/rw/nagios.cmd', help='The file to write '
             'Nagios commands to.')
     parser.add_option('-l', '--log-file', dest='logfile', metavar='FILE',
-            default='/var/log/nagios3/nagios.log', help='The file Nagios writes '
+            default='/var/log/nagios2/nagios.log', help='The file Nagios writes '
             'log events to.')
     parser.add_option('-b', '--bind', dest='bind_addr', metavar='ADDR',
             default='', help='The address to listen for requests on.')
@@ -979,6 +985,10 @@ def main(argv):
 
     if not os.path.isfile(options.statusfile):
         parser.error('Status file not found: %s' % options.statusfile)
+    if not os.path.isfile(options.commentfile):
+        parser.error('Comment file not found: %s' % options.commentfile)
+    if not os.path.isfile(options.downtimefile):
+        parser.error('Downtime file not found: %s' % options.downtimefile)
     if options.port < 0 or options.port > 65535:
         parser.error('Port must be in the range 1..65535.')
 
@@ -997,7 +1007,7 @@ def main(argv):
     log.info('Listening on port %d, starting to rock and roll!' % options.port)
     app.add_service(Service(http.HttpServer(http_handler), options.port,
             options.bind_addr))
-    app.add_loop(Loop(read_status, options.statusfile), keep_alive=True)
+    app.add_loop(Loop(read_status, options.statusfile, options.commentfile, options.downtimefile), keep_alive=True)
     if os.path.isfile(options.logfile):
         LOG_ENABLED = True
         app.add_loop(Loop(read_log, options.logfile), keep_alive=True)
@@ -1008,8 +1018,10 @@ def main(argv):
 def _exitfunc(*args):
     global PID_FILE
     if PID_FILE is not None and os.path.isfile(PID_FILE):
-        print "Exiting. Cleaning up PID."
+        print "Cleaning up PID."
         os.unlink(PID_FILE)
+    print "Exiting."
+    sys.exit(0)
 
 
 if __name__ == '__main__':

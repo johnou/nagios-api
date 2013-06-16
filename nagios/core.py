@@ -8,7 +8,7 @@ class Nagios:
     from the status file that Nagios maintains.
 
     '''
-    def __init__(self, statusfile):
+    def __init__(self, statusfile, commentfile, downtimefile):
         '''Create a new Nagios state store.  One argument, statusfile, is used to
         indicate where the status file is.  This object is intended to be read-only
         once it has been created.
@@ -18,9 +18,9 @@ class Nagios:
         self.services = {}
         self.comments = {}
         self.downtimes = {}
-        self._update(statusfile)
+        self._update(statusfile, commentfile, downtimefile)
 
-    def _update(self, statusfile):
+    def _update(self, statusfile, commentfile, downtimefile):
         '''Read the status file from Nagios and parse it.  Responsible for building
         our internal representation of the tree.
 
@@ -65,17 +65,25 @@ class Nagios:
             host = obj['host_name'] if 'host_name' in obj else None
             service = obj['service_description'] if 'service_description' in obj else None
 
-            if obj['type'] == 'hoststatus':
+            if obj['type'] == 'host':
                 self.hosts[host] = Host(obj)
-            elif obj['type'] == 'servicestatus':
+            elif obj['type'] == 'service':
                 if host not in self.services:
                     self.services[host] = {}
                 self.services[host][service] = Service(obj)
-            elif obj['type'] == 'programstatus':
-                self.program = ProgramStatus(obj)
-            elif obj['type'].endswith('comment'):
+            #elif obj['type'] == 'programstatus':
+            #    self.program = ProgramStatus(obj)
+        f.close()
+        
+        f = open(commentfile, 'r')
+        for obj in next_stanza(f):
+            if obj['type'].endswith('comment'):
                 self.comments[int(obj['comment_id'])] = Comment(obj)
-            elif obj['type'].endswith('downtime'):
+        f.close()
+        
+        f = open(downtimefile, 'r')
+        for obj in next_stanza(f):
+            if obj['type'].endswith('downtime'):
                 self.downtimes[int(obj['downtime_id'])] = Downtime(obj)
         f.close()
 
