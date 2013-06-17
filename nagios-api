@@ -855,7 +855,7 @@ def http_program(req, objid, reqobj):
     global NAGIOS
     if objid is not None:
         return json_error(req, 'Unexpected object ID.')
-    return json_response(req, NAGIOS.program.to_json())
+    return json_response(req, NAGIOS.program.for_json())
 
 
 def http_handler(req):
