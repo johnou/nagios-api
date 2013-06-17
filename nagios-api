@@ -29,7 +29,7 @@ from diesel import Application, Loop, Service, sleep
 from diesel.logmod import log, levels
 from diesel.util.lock import synchronized
 from diesel.protocols import http
-from json import dumps
+from ujson import dumps
 from nagios import Comment, Downtime, Nagios
 from werkzeug.exceptions import BadRequest
 from signal import signal, SIGTERM
@@ -845,10 +845,12 @@ def http_stfu_nagios(req):
         return json_error(req, 'External commands not enabled on nagios-api.')
 
     stfu_time = reqobj.get('stfu_time', time.time())
-    if not send_nagios_command('DISABLE_NOTIFICATIONS', stfu_time):
+    action = 'DISABLE_NOTIFICATIONS' if reqobj.get('status') else 'ENABLE_NOTIFICATION'
+
+    if not send_nagios_command(action, stfu_time):
         return json_error(req, 'Failed sending command to Nagios.')
 
-    return json_response(req, 'silenced.')
+    return json_response(req, 'command sent.')
 
 
 def http_program(req, objid, reqobj):
