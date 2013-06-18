@@ -584,7 +584,7 @@ def http_bulk_acknowledge_problem(req, objid, reqobj):
                     continue
             else:
                 if not send_nagios_command('ACKNOWLEDGE_HOST_PROBLEM', host,
-                        sticky, notify, persistent, author, command):
+                        sticky, notify, persistent, author, comment):
                     continue
 
     return json_response(req, 'submitted')
