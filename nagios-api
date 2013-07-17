@@ -904,6 +904,7 @@ def http_handler(req):
         'POST': {
             'cancel_downtime': http_cancel_downtime,
             'schedule_downtime': http_schedule_downtime,
+            'bulk_schedule_downtime': http_bulk_schedule_downtime,
             'disable_notifications': http_disable_notifications,
             'enable_notifications': http_enable_notifications,
             'submit_result': http_submit_result,
