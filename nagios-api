@@ -351,7 +351,7 @@ def http_bulk_schedule_downtime(req, objid, reqobj):
         for service in services or [None]:
             obj = Nagios.host_or_service(host, service)
             if obj is None:
-                continue
+                return json_error(req, 'Some host given are not valid.')
             if dur < 60 or dur > 86400 * 7: # week
                 return json_error(req, 'Downtime must be between 60s and one week.')
 
@@ -368,7 +368,8 @@ def http_bulk_schedule_downtime(req, objid, reqobj):
                     if not send_nagios_command('SCHEDULE_HOST_SVC_DOWNTIME', host, now, now+dur,
                                             1, 0, 0, author, comment):
                         return json_error(req, 'Failed sending command to Nagios.')
-            return json_response(req, 'scheduled')
+
+    return json_response(req, 'scheduled')
 
 
 def http_cancel_downtime(req, objid, reqobj):
