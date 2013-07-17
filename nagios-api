@@ -349,7 +349,7 @@ def http_bulk_schedule_downtime(req, objid, reqobj):
 
         # loop through services, could be empty
         for service in services or [None]:
-            obj = Nagios.host_or_service(host, service)
+            obj = NAGIOS.host_or_service(host, service)
             if obj is None:
                 return json_error(req, 'Some host given are not valid.')
             if dur < 60 or dur > 86400 * 7: # week
