@@ -372,6 +372,13 @@ def http_bulk_schedule_downtime(req, objid, reqobj):
     return json_response(req, 'scheduled')
 
 
+def http_downtime(req, objid, reqobj):
+    global NAGIOS
+    if objid is not None:
+        return json_error(req, 'Unexpected object ID.')
+    return json_response(req, NAGIOS.downtimes)
+
+
 def http_cancel_downtime(req, objid, reqobj):
     '''Given a downtime_id in objid, cancel that downtime. Alternately,
     this method will expect a host and/or service parameter and use that
@@ -901,6 +908,7 @@ def http_handler(req):
             'host': http_host,
             'service': http_service,
             'program': http_program,
+            'downtime': http_downtime,
         },
         'POST': {
             'cancel_downtime': http_cancel_downtime,
