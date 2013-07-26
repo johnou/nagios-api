@@ -29,7 +29,7 @@ from diesel import Application, Loop, Service, sleep
 from diesel.logmod import log, levels
 from diesel.util.lock import synchronized
 from diesel.protocols import http
-from json import dumps
+from ujson import dumps
 from nagios import Comment, Downtime, Nagios
 from werkzeug.exceptions import BadRequest
 from signal import signal, SIGTERM
@@ -318,6 +318,67 @@ def http_schedule_downtime(req, objid, reqobj):
     return json_response(req, 'scheduled')
 
 
+def http_bulk_schedule_downtime(req, objid, reqobj):
+
+    """
+        schedule downtime for hosts
+        schedule downtime for hosts -> services (with services_too)
+        duration is between 60s and a week
+
+    """
+    global NAGIOS, CMD_ENABLED
+    if not CMD_ENABLED:
+        return json_error(req, 'External commands not enabled on nagios-api.')
+    if objid is not None:
+        return json_error(req, 'Unexpected object ID')
+
+    hosts = reqobj.get('hosts')
+    service = reqobj.get('service')
+    services_too = reqobj.get('services_too', False)
+    author = reqobj.get('author', 'nagios-api')
+    comment = reqobj.get('comment', 'schedule downtime')
+    try:
+        dur = int(reqobj.get('duration', 0))
+    except ValueError:
+        dur = 0
+
+    if hosts is None:
+        return json_error(req, 'Hosts cannot be null.')
+
+    for host, services in hosts.iteritems():
+
+        # loop through services, could be empty
+        for service in services or [None]:
+            obj = NAGIOS.host_or_service(host, service)
+            if obj is None:
+                return json_error(req, 'Some host given are not valid.')
+            if dur < 60 or dur > 86400 * 7: # week
+                return json_error(req, 'Downtime must be between 60s and one week.')
+
+            now = int(time.time())
+            if obj.service is not None:
+                if not send_nagios_command('SCHEDULE_SVC_DOWNTIME', host, service, now,
+                                        now+dur, 1, 0, 0, author, comment):
+                    return json_error(req, 'Failed sending command to Nagios.')
+            else:
+                if not send_nagios_command('SCHEDULE_HOST_DOWNTIME', host, now, now+dur,
+                                        1, 0, 0, author, comment):
+                    return json_error(req, 'Failed sending command to Nagios.')
+                if services_too:
+                    if not send_nagios_command('SCHEDULE_HOST_SVC_DOWNTIME', host, now, now+dur,
+                                            1, 0, 0, author, comment):
+                        return json_error(req, 'Failed sending command to Nagios.')
+
+    return json_response(req, 'scheduled')
+
+
+def http_downtime(req, objid, reqobj):
+    global NAGIOS
+    if objid is not None:
+        return json_error(req, 'Unexpected object ID.')
+    return json_response(req, NAGIOS.downtimes)
+
+
 def http_cancel_downtime(req, objid, reqobj):
     '''Given a downtime_id in objid, cancel that downtime. Alternately,
     this method will expect a host and/or service parameter and use that
@@ -531,7 +592,7 @@ def http_bulk_acknowledge_problem(req, objid, reqobj):
                     continue
             else:
                 if not send_nagios_command('ACKNOWLEDGE_HOST_PROBLEM', host,
-                        sticky, notify, persistent, author, command):
+                        sticky, notify, persistent, author, comment):
                     continue
 
     return json_response(req, 'submitted')
@@ -792,17 +853,19 @@ def http_stfu_nagios(req):
         return json_error(req, 'External commands not enabled on nagios-api.')
 
     stfu_time = reqobj.get('stfu_time', time.time())
-    if not send_nagios_command('DISABLE_NOTIFICATIONS', stfu_time):
+    action = 'DISABLE_NOTIFICATIONS' if reqobj.get('status') else 'ENABLE_NOTIFICATION'
+
+    if not send_nagios_command(action, stfu_time):
         return json_error(req, 'Failed sending command to Nagios.')
 
-    return json_response(req, 'silenced.')
+    return json_response(req, 'command sent.')
 
 
 def http_program(req, objid, reqobj):
     global NAGIOS
     if objid is not None:
         return json_error(req, 'Unexpected object ID.')
-    return json_response(req, NAGIOS.program.to_json())
+    return json_response(req, NAGIOS.program.for_json())
 
 
 def http_handler(req):
@@ -845,10 +908,12 @@ def http_handler(req):
             'host': http_host,
             'service': http_service,
             'program': http_program,
+            'downtime': http_downtime,
         },
         'POST': {
             'cancel_downtime': http_cancel_downtime,
             'schedule_downtime': http_schedule_downtime,
+            'bulk_schedule_downtime': http_bulk_schedule_downtime,
             'disable_notifications': http_disable_notifications,
             'enable_notifications': http_enable_notifications,
             'submit_result': http_submit_result,
